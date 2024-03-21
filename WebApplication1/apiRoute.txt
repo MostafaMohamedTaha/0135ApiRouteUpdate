@@ -1,0 +1,219 @@
+#region [a] start str 1
+	#region [a] project str
+		=>api core
+		#region [c] postman
+			add collection=>folder=>requests
+		#endregion
+
+		#region [b] str
+			r click solution =>Add new project
+			r click on dependance => add project reference
+			ref api =>ref service =>ref repo =>ref core
+		#endregion
+	#endregion
+
+	#region [a] make entity in core 
+		folder entity [base entity,other entities]
+
+		#region [b] [brand | type |product]
+			#region [a] base
+				public class Base
+				{
+					public int Id { get; set; }
+				}
+			#endregion
+
+			#region [a] product
+				public string Name { get; set; }
+				public string Description { get; set; }
+				public string PictureUrl { get; set; }
+				public decimal Price { get; set; }
+				public int Quantity { get; set; }
+
+				
+				public int BrandId { get; set; }
+				public Brand Brand { get; set; }
+				
+				public int TypeId { get; set; }
+				public Type Type { get; set; }
+			#endregion
+
+			#region [a] brand
+				public class Brand:Base
+				{
+					public string Name { get; set; }
+				}
+			#endregion
+
+			#region [a] type
+				public class Type:Base
+				{
+					public string Name { get; set; }
+				}
+			#endregion
+		#endregion
+	#endregion
+
+	#region [a] migration make data folder
+		class AppContext :DbContext =>r click package [microsoft.entityFrameWorkCore.SqlServer]
+
+		#region [a] context
+			#region [a] context data
+
+				public class AppContext:DbContext 
+				{
+					public AppContext(DbContextOptions<AppContext> opt):base(opt)
+					{  
+					}
+				}
+			#endregion
+
+			#region [b] api pipeline
+				builder.Services.AddDbContext<AppContext1>(
+					x =>
+					{
+						x.UseSqlServer(builder.Configuration.GetConnectionString("con"));
+					}
+					);
+			#endregion
+
+			#region [c] appSetting.json 
+				"ConnectionStrings": {
+					"con": "Server=.;Database=AppContextDb;Trusted_Connection=true;MultiActiveResultSets=true;"
+				}
+			#endregion
+
+			#region [d] context DbSet
+				public DbSet<Product> Products { get; set; }
+				public DbSet<ProductType> ProductTypes { get; set; }
+				public DbSet<Brand> Brands{ get; set; }
+			#endregion
+
+			#region [e] custom configuration
+				internal class ProductConfig : IEntityTypeConfiguration<Product>
+				{
+					public void Configure(EntityTypeBuilder<Product> builder)
+					{
+						builder.Property(x => x.Price).HasColumnType("decimal(18,2)");
+						builder.HasOne(x => x.Brand).WithMany().HasForeignKey(x => x.BrandId);
+						builder.HasOne(x => x.ProductType).WithMany().HasForeignKey(x => x.TypeId);
+					}
+				}
+			#endregion
+
+			#region [a] context model config
+				protected override void OnModelCreating(ModelBuilder modelBuilder)
+				{
+					base.OnModelCreating(modelBuilder);
+
+					//modelBuilder.ApplyConfiguration(new ProductConfig()); //fluent api
+					modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+				}
+			#endregion
+
+			#region [a] package manager console 
+				add-migration initialCreate -o Data/Migrations
+			#endregion
+
+			#region [a] VERSIONS OF PACKAGES
+				Microsoft.EntityFrameworkCore.Design =>APP.API
+				Microsoft.EntityFrameworkCore.tools =>repo
+				Microsoft.EntityFrameworkCore.SqlServer =>repo
+			#endregion
+		#endregion
+	#endregion
+
+	#region [b] update database	
+		#region [a] program cs under app
+			using var scope = app.Services.CreateScope();
+			var services= scope.ServiceProvider;
+			var loggerFactory= services.GetRequiredService<ILoggerFactory>(); //!show exception of dbContext
+			try
+			{
+				var dbContext= services.GetRequiredService<AppContext1>();
+				await dbContext.Database.MigrateAsync();
+			}
+			catch (Exception ex)
+			{
+
+				var logger = loggerFactory.CreateLogger<Program>();
+				logger.LogError(ex, "error occured while migration");
+			}
+		#endregion
+	#endregion
+
+	#region [c] rename powershell
+        D:
+        cd D:\image\electronics
+        $files = Get-ChildItem
+        $counter = 1
+        foreach ($file in $files) {
+            $newName = '{0:D2}product.jpg' -f $counter
+            Rename-Item -Path $file.FullName -NewName $newName
+            $counter++
+        }
+	#endregion
+
+	#region [d] seeding class level of db class
+		public static class AppSeeding{
+			public static async Task SeedAsync(AppContext1 context){
+				if(!context.Brands.Any())
+				{
+					var brandsData = File.ReadAllText("../app.repo/Data/seeding/brands.json");
+					var brands=JsonSerializer.Deserialize<List<Brand>>(brandsData);
+					if (brands is not null && brands.Count>0)
+					{
+
+						foreach (var brand in brands)
+						{
+							await context.Set<Brand>().AddAsync(brand);
+						}
+						await context.SaveChangesAsync();
+					}
+				}
+			}
+		}
+	#endregion
+
+	#region [d] seeding at api programs inside migration scope
+		using var scope = app.Services.CreateScope();
+		var services = scope.ServiceProvider;
+		var loggerFactory = services.GetRequiredService<ILoggerFactory>(); //!show exception of dbContext
+		try
+		{
+			var dbContext = services.GetRequiredService<AppContext1>();
+			await dbContext.Database.MigrateAsync();
+			await AppSeeding.SeedAsync(dbContext);
+		}
+		catch (Exception ex)
+		{
+
+			var logger = loggerFactory.CreateLogger<Program>();
+			logger.LogError(ex, "error occured while migration");
+		}
+	#endregion
+
+	#region [a] json file should have same names of entities core
+		{
+			"Name": "Double Caramel Frappuccino",
+			"Description": "Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Maecenas porttitor congue massa. Fusce posuere, magna sed pulvinar ultricies, purus lectus malesuada libero, sit amet commodo magna eros quis urna.",
+			"Price": 200.0,
+			"PictureUrl": "images/products/sb-ang1.png",
+			"TypeId": 1,
+			"BrandId": 1,
+			"Quantity": 10
+		},
+
+		public string Name { get; set; }
+		public string Description { get; set; }
+		public string PictureUrl { get; set; }
+		public decimal Price { get; set; }
+		public int Quantity { get; set; }
+
+		public int BrandId { get; set; }
+		public Brand Brand { get; set; }
+		
+		public int TypeId { get; set; }
+		public ProductType ProductType { get; set; }
+	#endregion
+#endregion
